@@ -1,0 +1,805 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - Bandwidth Hog Detector Pro{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analytics-header {
+        margin-bottom: 30px;
+    }
+    
+    .analytics-header h1 {
+        font-size: 1.8rem;
+        margin-bottom: 10px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .analytics-header p {
+        color: var(--text-secondary);
+    }
+    
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+    
+    .analytics-card {
+        background: var(--card-bg);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s;
+    }
+    
+    .analytics-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+    }
+    
+    .analytics-card.full-width {
+        grid-column: span 2;
+    }
+    
+    .analytics-card h3 {
+        margin-bottom: 20px;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .analytics-card h3 i {
+        color: var(--accent-primary);
+    }
+    
+    .chart-container {
+        height: 320px;
+        position: relative;
+    }
+    
+    .time-range-selector {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .time-range-btn {
+        padding: 8px 20px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        border-radius: 30px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    
+    .time-range-btn.active {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border-color: transparent;
+    }
+    
+    .time-range-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    }
+    
+    .table-container {
+        overflow-x: auto;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    th {
+        font-weight: 600;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        background: var(--bg-primary);
+        position: sticky;
+        top: 0;
+    }
+    
+    tr:hover {
+        background: var(--table-hover);
+    }
+    
+    .timeline-container {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding: 12px 12px 12px 20px;
+        border-left: 3px solid;
+        margin-bottom: 12px;
+        background: var(--bg-primary);
+        border-radius: 8px;
+        transition: all 0.2s;
+    }
+    
+    .timeline-item:hover {
+        transform: translateX(5px);
+    }
+    
+    .timeline-item.warning {
+        border-left-color: #ff9800;
+    }
+    
+    .timeline-item.critical {
+        border-left-color: #f44336;
+    }
+    
+    .timeline-item.urgent {
+        border-left-color: #9c27b0;
+    }
+    
+    .timeline-item.info {
+        border-left-color: #2196f3;
+    }
+    
+    .timeline-time {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+    
+    .timeline-type {
+        font-weight: 600;
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .timeline-description {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+    
+    .stats-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .summary-item {
+        text-align: center;
+        padding: 15px;
+        background: var(--bg-primary);
+        border-radius: 12px;
+        transition: all 0.2s;
+    }
+    
+    .summary-item:hover {
+        transform: translateY(-3px);
+        background: var(--card-bg);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .summary-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+    }
+    
+    .summary-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent-primary);
+    }
+    
+    .text-muted {
+        color: var(--text-secondary);
+        text-align: center;
+        padding: 40px;
+    }
+    
+    .loading {
+        text-align: center;
+        color: var(--text-secondary);
+        padding: 40px;
+    }
+    
+    .live-badge {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #4caf50;
+        border-radius: 50%;
+        animation: pulse 1.5s infinite;
+        margin-right: 8px;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .protocol-legend {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 15px;
+        padding: 10px;
+        background: var(--bg-primary);
+        border-radius: 12px;
+    }
+    
+    .protocol-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        padding: 4px 8px;
+        border-radius: 20px;
+        transition: all 0.2s;
+    }
+    
+    .protocol-legend-item:hover {
+        background: var(--card-bg);
+        transform: scale(1.05);
+    }
+    
+    .protocol-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+    
+    .anomaly-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        margin-left: 8px;
+    }
+    
+    .badge-new {
+        background: #4caf50;
+        color: white;
+    }
+    
+    .badge-spike {
+        background: #ff9800;
+        color: white;
+    }
+    
+    .badge-warning {
+        background: #ffc107;
+        color: #333;
+    }
+    
+    .badge-critical {
+        background: #f44336;
+        color: white;
+    }
+    
+    @media (max-width: 1024px) {
+        .analytics-grid {
+            grid-template-columns: 1fr;
+        }
+        .analytics-card.full-width {
+            grid-column: span 1;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .stats-summary-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        .time-range-selector {
+            justify-content: center;
+        }
+        .protocol-legend {
+            gap: 8px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-header">
+    <h1><i class="fas fa-chart-line"></i> Network Analytics</h1>
+    <p>Real-time traffic analysis, protocol distribution, and anomaly detection</p>
+</div>
+
+<div class="analytics-grid">
+    <!-- Time Range Selector -->
+    <div class="analytics-card full-width">
+        <div class="time-range-selector">
+            <button class="time-range-btn active" data-range="1h">Last Hour</button>
+            <button class="time-range-btn" data-range="6h">Last 6 Hours</button>
+            <button class="time-range-btn" data-range="24h">Last 24 Hours</button>
+            <button class="time-range-btn" data-range="7d">Last 7 Days</button>
+        </div>
+    </div>
+    
+    <!-- Traffic Overview Chart -->
+    <div class="analytics-card">
+        <h3><i class="fas fa-chart-line"></i> Traffic Overview <span class="live-badge"></span> Live</h3>
+        <div class="chart-container">
+            <canvas id="trafficOverviewChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Protocol Distribution -->
+    <div class="analytics-card">
+        <h3><i class="fas fa-chart-pie"></i> Protocol Distribution</h3>
+        <div class="chart-container">
+            <canvas id="protocolDistChart"></canvas>
+        </div>
+        <div class="protocol-legend">
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #4361ee;"></span>TCP</span>
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #06d6a0;"></span>UDP</span>
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #ffd166;"></span>HTTP</span>
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #ef476f;"></span>HTTPS</span>
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #8b5cf6;"></span>DNS</span>
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #ec489a;"></span>Streaming</span>
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #14b8a6;"></span>Gaming</span>
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #f59e0b;"></span>VoIP</span>
+            <span class="protocol-legend-item"><span class="protocol-color" style="background: #64748b;"></span>Other</span>
+        </div>
+    </div>
+    
+    <!-- Top Talkers - REAL DATA -->
+    <div class="analytics-card">
+        <h3><i class="fas fa-ranking-star"></i> Top Bandwidth Consumers</h3>
+        <div class="table-container">
+            <table id="top-talkers-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>IP Address</th>
+                        <th>Device Name</th>
+                        <th>Manufacturer</th>
+                        <th>Total Traffic</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody id="top-talkers-body">
+                    <tr>
+                        <td colspan="6" class="loading"><i class="fas fa-spinner fa-spin"></i> Loading real device data...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Anomaly Timeline - REAL ANOMALIES ONLY -->
+    <div class="analytics-card">
+        <h3><i class="fas fa-exclamation-triangle"></i> Real Anomaly Timeline</h3>
+        <div class="timeline-container" id="anomaly-timeline">
+            <p class="text-muted"><i class="fas fa-check-circle"></i> Loading real anomalies...</p>
+        </div>
+    </div>
+    
+    <!-- Statistics Summary -->
+    <div class="analytics-card full-width">
+        <h3><i class="fas fa-calculator"></i> Statistics Summary</h3>
+        <div class="stats-summary-grid">
+            <div class="summary-item">
+                <div class="summary-label">Total Traffic</div>
+                <div class="summary-value" id="total-traffic-summary">0 MB</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Average Rate</div>
+                <div class="summary-value" id="avg-rate">0 Mbps</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Peak Rate</div>
+                <div class="summary-value" id="peak-rate">0 Mbps</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Total Packets</div>
+                <div class="summary-value" id="total-packets">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Active Devices</div>
+                <div class="summary-value" id="active-devices">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Total Alerts</div>
+                <div class="summary-value" id="total-alerts">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Uptime</div>
+                <div class="summary-value" id="uptime">0h</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Packet Rate</div>
+                <div class="summary-value" id="packet-rate">0/s</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let trafficChart = null;
+    let protocolChart = null;
+    let currentRange = '1h';
+    let updateInterval = null;
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('📊 Analytics page loaded - Fetching REAL data');
+        initCharts();
+        loadAnalyticsData('1h');
+        setupEventListeners();
+        startAutoRefresh();
+    });
+    
+    function initCharts() {
+        // Traffic Overview Line Chart
+        const trafficCtx = document.getElementById('trafficOverviewChart')?.getContext('2d');
+        if (trafficCtx) {
+            trafficChart = new Chart(trafficCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Download (Mbps)',
+                            data: [],
+                            borderColor: '#4361ee',
+                            backgroundColor: 'rgba(67, 97, 238, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Upload (Mbps)',
+                            data: [],
+                            borderColor: '#06d6a0',
+                            backgroundColor: 'rgba(6, 214, 160, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            title: { display: true, text: 'Mbps', color: '#666' }, 
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        x: { 
+                            title: { display: true, text: 'Time', color: '#666' }, 
+                            ticks: { maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 12 }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } },
+                        tooltip: { mode: 'index', intersect: false, backgroundColor: 'rgba(0,0,0,0.8)' }
+                    },
+                    animation: { duration: 750, easing: 'easeInOutQuart' }
+                }
+            });
+            console.log('✅ Traffic chart initialized');
+        }
+        
+        // Protocol Distribution Chart
+        const protocolCtx = document.getElementById('protocolDistChart')?.getContext('2d');
+        if (protocolCtx) {
+            protocolChart = new Chart(protocolCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['TCP', 'UDP', 'HTTP', 'HTTPS', 'DNS', 'Streaming', 'Gaming', 'VoIP', 'Other'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            '#4361ee', '#06d6a0', '#ffd166', '#ef476f', 
+                            '#8b5cf6', '#ec489a', '#14b8a6', '#f59e0b', '#64748b'
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '60%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const value = context.raw;
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${context.label}: ${percentage}%`;
+                                }
+                            }
+                        }
+                    },
+                    animation: { animateRotate: true, animateScale: true, duration: 1000 }
+                }
+            });
+            console.log('✅ Protocol chart initialized');
+        }
+    }
+    
+    async function loadAnalyticsData(range) {
+        console.log(`📊 Loading REAL analytics data for range: ${range}`);
+        currentRange = range;
+        
+        try {
+            // Fetch REAL data from your backend
+            const response = await fetch(`/api/analytics?range=${range}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            console.log('✅ REAL analytics data received:', data);
+            updateUI(data);
+        } catch (error) {
+            console.error('❌ Failed to load analytics:', error);
+            showError();
+        }
+    }
+    
+    function updateUI(data) {
+        // Update Traffic Chart
+        if (trafficChart && data.traffic_history) {
+            trafficChart.data.labels = data.traffic_history.labels;
+            trafficChart.data.datasets[0].data = data.traffic_history.download;
+            trafficChart.data.datasets[1].data = data.traffic_history.upload;
+            trafficChart.update();
+        }
+        
+        // Update Protocol Chart
+        if (protocolChart && data.protocol_distribution) {
+            const proto = data.protocol_distribution;
+            protocolChart.data.datasets[0].data = [
+                proto.tcp || 0,
+                proto.udp || 0,
+                proto.http || 0,
+                proto.https || 0,
+                proto.dns || 0,
+                proto.streaming || 0,
+                proto.gaming || 0,
+                proto.voip || 0,
+                proto.other || 0
+            ];
+            protocolChart.update();
+            console.log('✅ Protocol chart updated with REAL data');
+        }
+        
+        // Update Top Talkers with REAL data
+        updateTopTalkers(data.top_talkers);
+        
+        // Update Anomaly Timeline with REAL anomalies
+        updateAnomalyTimeline(data.anomaly_timeline);
+        
+        // Update Statistics
+        updateStatistics(data.statistics);
+    }
+    
+    function updateTopTalkers(talkers) {
+        const tbody = document.getElementById('top-talkers-body');
+        if (!tbody) return;
+        
+        if (!talkers || talkers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="loading">No devices found. Click "Scan Now" to discover devices.</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        talkers.forEach((talker, index) => {
+            const deviceName = talker.hostname || talker.name || talker.ip;
+            const manufacturer = talker.manufacturer || 'Unknown';
+            const barWidth = Math.min(talker.percentage || (talker.total_mb / (talkers[0]?.total_mb || 1) * 100), 100);
+            
+            html += `
+                <tr style="animation: fadeInUp 0.3s ease-out ${index * 0.05}s both;">
+                    <td><strong>#${index + 1}</strong></td>
+                    <td><code>${escapeHtml(talker.ip)}</code></td>
+                    <td>${escapeHtml(deviceName)}</td>
+                    <td>${escapeHtml(manufacturer)}</td>
+                    <td><strong>${(talker.total_mb || 0).toFixed(2)} MB</strong></td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="flex: 1; height: 8px; background: var(--bg-primary); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, #4361ee, #06d6a0); border-radius: 4px; transition: width 0.5s ease;"></div>
+                            </div>
+                            <span style="min-width: 45px; font-weight: 500;">${talker.percentage || barWidth.toFixed(1)}%</span>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+        console.log(`✅ Top talkers updated with ${talkers.length} REAL devices`);
+    }
+    
+    function updateAnomalyTimeline(anomalies) {
+        const container = document.getElementById('anomaly-timeline');
+        if (!container) return;
+        
+        if (!anomalies || anomalies.length === 0) {
+            container.innerHTML = '<p class="text-muted"><i class="fas fa-check-circle"></i> No anomalies detected on your network</p>';
+            return;
+        }
+        
+        let html = '';
+        anomalies.forEach((anomaly, index) => {
+            let severityClass = 'info';
+            let badgeClass = '';
+            let badgeText = '';
+            
+            if (anomaly.severity === 'warning') {
+                severityClass = 'warning';
+                badgeClass = 'badge-spike';
+                badgeText = 'SPIKE';
+            } else if (anomaly.severity === 'critical') {
+                severityClass = 'critical';
+                badgeClass = 'badge-critical';
+                badgeText = 'CRITICAL';
+            } else if (anomaly.severity === 'urgent') {
+                severityClass = 'urgent';
+                badgeClass = 'badge-critical';
+                badgeText = 'URGENT';
+            } else {
+                severityClass = 'info';
+                badgeClass = 'badge-new';
+                badgeText = 'INFO';
+            }
+            
+            let icon = '🔔';
+            let type = anomaly.type || 'Anomaly';
+            if (type === 'TRAFFIC_SPIKE') {
+                icon = '⚡';
+                badgeText = 'SPIKE';
+                badgeClass = 'badge-spike';
+            } else if (type === 'NEW_DEVICE') {
+                icon = '📱';
+                badgeText = 'NEW';
+                badgeClass = 'badge-new';
+            } else if (type === 'DEVICE_LEFT') {
+                icon = '📤';
+                badgeText = 'LEFT';
+                badgeClass = 'badge-info';
+            } else if (type === 'BLOCK') {
+                icon = '🚫';
+                badgeText = 'BLOCKED';
+                badgeClass = 'badge-critical';
+            } else if (type === 'THROTTLE') {
+                icon = '🐢';
+                badgeText = 'THROTTLED';
+                badgeClass = 'badge-warning';
+            } else if (type === 'BANDWIDTH_WARNING' || type === 'BANDWIDTH_EXCEEDANCE') {
+                icon = '⚠️';
+                badgeText = 'WARNING';
+                badgeClass = 'badge-warning';
+            }
+            
+            html += `
+                <div class="timeline-item ${severityClass}" style="animation: slideInRight 0.3s ease-out ${index * 0.05}s both;">
+                    <div class="timeline-time">${anomaly.time || 'Just now'}</div>
+                    <div class="timeline-type">
+                        ${icon} ${type.replace(/_/g, ' ')}
+                        <span class="anomaly-badge ${badgeClass}">${badgeText}</span>
+                    </div>
+                    <div class="timeline-description">${escapeHtml(anomaly.description || 'No description')}</div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        console.log(`✅ Anomaly timeline updated with ${anomalies.length} REAL anomalies`);
+    }
+    
+    function updateStatistics(stats) {
+        if (!stats) return;
+        
+        document.getElementById('total-traffic-summary').textContent = (stats.total_traffic || 0).toFixed(2) + ' MB';
+        document.getElementById('avg-rate').textContent = (stats.avg_rate || 0).toFixed(1) + ' Mbps';
+        document.getElementById('peak-rate').textContent = (stats.peak_rate || 0).toFixed(1) + ' Mbps';
+        document.getElementById('total-packets').textContent = (stats.total_packets || 0).toLocaleString();
+        document.getElementById('active-devices').textContent = stats.unique_devices || stats.active_devices || 0;
+        document.getElementById('total-alerts').textContent = stats.alert_count || stats.total_alerts || 0;
+        document.getElementById('uptime').textContent = (stats.uptime || 0).toFixed(1) + 'h';
+        document.getElementById('packet-rate').textContent = (stats.packet_rate || 0).toFixed(1) + '/s';
+        
+        console.log('✅ Statistics updated with REAL data');
+    }
+    
+    function setupEventListeners() {
+        const buttons = document.querySelectorAll('.time-range-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                buttons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                loadAnalyticsData(this.dataset.range);
+            });
+        });
+    }
+    
+    function startAutoRefresh() {
+        if (updateInterval) clearInterval(updateInterval);
+        updateInterval = setInterval(() => {
+            loadAnalyticsData(currentRange);
+        }, 10000);
+        console.log('🔄 Auto-refresh started (every 10 seconds)');
+    }
+    
+    function showError() {
+        const tbody = document.getElementById('top-talkers-body');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="loading"><i class="fas fa-exclamation-triangle"></i> Error loading data. Make sure the server is running.</td></tr>';
+        }
+        const timeline = document.getElementById('anomaly-timeline');
+        if (timeline) {
+            timeline.innerHTML = '<p class="text-muted"><i class="fas fa-exclamation-triangle"></i> Unable to load anomalies. Check server connection.</p>';
+        }
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    window.addEventListener('beforeunload', () => {
+        if (updateInterval) clearInterval(updateInterval);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+# Bandwidth Hog Detector Pro Configuration
+server:
+  host: "0.0.0.0"
+  port: 5000
+  debug: false
+
+network:
+  interface: "Wi-Fi"
+  promiscuous: true
+  capture_timeout: 60
+  
+monitoring:
+  update_interval: 2
+  history_size: 3600
+  max_devices: 100
+  
+auto_control:
+  enabled: true
+  check_interval: 10
+  thresholds:
+    warning: 104857600  # 100 MB
+    critical: 524288000  # 500 MB
+    time_window: 600     # 10 minutes
+  actions:
+    warning:
+      type: "throttle"
+      rate: "256kbps"
+      duration: 1800      # 30 minutes
+    critical:
+      type: "block"
+      duration: 3600      # 1 hour
+
+anomaly_detection:
+  enabled: true
+  bandwidth_spike_threshold: 2.5
+  packet_flood_threshold: 1000
+  connection_threshold: 100
+  
+logging:
+  enabled: true
+  file: "logs/app.log"
+  level: "INFO"

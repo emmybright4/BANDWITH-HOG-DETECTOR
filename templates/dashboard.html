@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bandwidth Hog Detector - Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style id="theme-styles">
+        /* Light Theme (Default) */
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --card-bg: #ffffff;
+            --sidebar-bg: #2c3e50;
+            --sidebar-text: #ecf0f1;
+            --accent-primary: #4361ee;
+            --accent-success: #06d6a0;
+            --accent-warning: #ffd166;
+            --accent-danger: #ef476f;
+            --table-hover: #f8f9fa;
+            --gradient-start: #667eea;
+            --gradient-end: #764ba2;
+        }
+
+        body.dark {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0a0;
+            --border-color: #2d2d44;
+            --card-bg: #0f172a;
+            --sidebar-bg: #0f0f1a;
+            --sidebar-text: #e2e8f0;
+            --table-hover: #1e293b;
+            --gradient-start: #5a67d8;
+            --gradient-end: #6b46c1;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container { max-width: 1400px; margin: 0 auto; }
+        
+        /* Header */
+        .header {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .theme-toggle {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            padding: 8px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+        
+        .theme-toggle:hover {
+            transform: scale(1.05);
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+        }
+        
+        .quick-links {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .quick-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .quick-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .network-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .wifi-info h2 { color: var(--text-primary); font-size: 1.5em; margin-bottom: 5px; }
+        .wifi-info p { color: var(--text-secondary); font-size: 0.9em; }
+        
+        .stats-badge { display: flex; gap: 20px; flex-wrap: wrap; }
+        .stat-item { text-align: center; padding: 10px 20px; background: var(--bg-primary); border-radius: 12px; }
+        .stat-label { font-size: 0.8em; color: var(--text-secondary); text-transform: uppercase; }
+        .stat-value { font-size: 1.5em; font-weight: bold; color: var(--accent-primary); }
+        
+        .refresh-btn {
+            background: var(--accent-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .refresh-btn:hover { background: #5a67d8; transform: translateY(-2px); }
+        
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
+        }
+        
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .stat-title { font-size: 0.85em; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
+        .stat-icon { font-size: 1.5em; opacity: 0.7; color: var(--text-secondary); }
+        .stat-value { font-size: 2em; font-weight: bold; color: var(--accent-primary); margin-bottom: 10px; }
+        
+        /* Charts */
+        .charts-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .chart-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .chart-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .chart-header h3 { 
+            color: var(--text-primary); 
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .chart-container { 
+            height: 300px;
+            position: relative;
+        }
+        
+        .protocol-sub-labels {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .protocol-sub-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            background: var(--bg-primary);
+            border-radius: 20px;
+            transition: all 0.2s;
+        }
+        
+        .protocol-sub-label:hover {
+            transform: translateY(-2px);
+            background: var(--card-bg);
+        }
+        
+        /* Table */
+        .table-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .table-header h3 { color: var(--text-primary); }
+        
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background: var(--bg-primary); font-weight: 600; color: var(--text-secondary); }
+        tr:hover { background: var(--table-hover); }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 500;
+        }
+        .status-active { background: #4caf50; color: white; }
+        .status-inactive { background: #999; color: white; }
+        .status-blocked { background: #f44336; color: white; }
+        .status-throttled { background: #ff9800; color: white; }
+        
+        .btn-action {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px 8px;
+            border-radius: 6px;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+        }
+        .btn-action:hover { background: var(--bg-primary); transform: scale(1.1); }
+        
+        .loading { text-align: center; padding: 20px; color: var(--text-secondary); }
+        .last-update { font-size: 0.8em; color: var(--text-secondary); margin-top: 10px; text-align: right; }
+        
+        .legend-item { display: inline-flex; align-items: center; gap: 5px; margin-right: 15px; font-size: 0.85em; color: var(--text-secondary); }
+        .legend-color { width: 12px; height: 12px; border-radius: 50%; }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .fa-spinner { animation: spin 1s linear infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .live-badge {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #4caf50;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+            margin-right: 8px;
+        }
+        
+        @media (max-width: 1024px) {
+            .charts-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .quick-links { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header with Quick Links & Theme Toggle -->
+        <div class="header">
+            <div class="top-bar">
+                <div class="wifi-info">
+                    <h2><i class="fas fa-wifi"></i> <span id="network-name">Loading...</span></h2>
+                    <p>Your IP: <span id="local-ip">-</span> | Gateway: <span id="gateway">-</span></p>
+                </div>
+                <div class="stats-badge">
+                    <div class="stat-item"><div class="stat-label">Total Traffic</div><div class="stat-value" id="total-traffic">0 MB</div></div>
+                    <div class="stat-item"><div class="stat-label">Active Devices</div><div class="stat-value" id="active-devices">0</div></div>
+                    <div class="stat-item"><div class="stat-label">Packets</div><div class="stat-value" id="packet-count">0</div></div>
+                </div>
+                <div>
+                    <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span></button>
+                    <button class="refresh-btn" onclick="refreshAll()" style="margin-left: 10px;"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+            </div>
+            
+            <!-- Quick Links Bar -->
+            <div class="quick-links">
+                <a href="/dashboard" class="quick-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                <a href="/analytics" class="quick-link"><i class="fas fa-chart-line"></i> Analytics</a>
+                <a href="/admin" class="quick-link"><i class="fas fa-shield-alt"></i> Admin</a>
+                <a href="#" onclick="manualScan()" class="quick-link"><i class="fas fa-search"></i> Scan Now</a>
+                <a href="#" onclick="exportCSV()" class="quick-link"><i class="fas fa-download"></i> Export CSV</a>
+                <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+                    <span style="width: 10px; height: 10px; background: #4caf50; border-radius: 50%; display: inline-block;"></span>
+                    <span style="font-size: 0.8em;">Auto-scan active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-header"><span class="stat-title">NETWORK TRAFFIC</span><i class="fas fa-network-wired stat-icon"></i></div>
+            <div class="stat-value" id="stat-traffic">0 MB</div><div class="stat-trend">Total bandwidth</div></div>
+            
+            <div class="stat-card"><div class="stat-header"><span class="stat-title">PACKET CAPTURE</span><i class="fas fa-download stat-icon"></i></div>
+            <div class="stat-value" id="stat-packets">0</div><div class="stat-trend"><span id="capture-rate">0</span> packets/sec</div></div>
+            
+            <div class="stat-card"><div class="stat-header"><span class="stat-title">ACTIVE DEVICES</span><i class="fas fa-network-wired stat-icon"></i></div>
+            <div class="stat-value" id="stat-active">0</div><div class="stat-trend">devices online</div></div>
+            
+            <div class="stat-card"><div class="stat-header"><span class="stat-title">ANOMALIES</span><i class="fas fa-exclamation-triangle stat-icon"></i></div>
+            <div class="stat-value" id="stat-anomalies">0</div><div class="stat-trend">detected</div></div>
+        </div>
+
+        <!-- Charts Row - Bandwidth & Protocol Distribution -->
+        <div class="charts-row">
+            <!-- Bandwidth Usage Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3><i class="fas fa-chart-line"></i> Bandwidth Usage <span class="live-badge"></span></h3>
+                    <div>
+                        <span class="legend-item"><span class="legend-color" style="background:#4361ee;"></span>Download</span>
+                        <span class="legend-item"><span class="legend-color" style="background:#06d6a0;"></span>Upload</span>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="bandwidthChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Protocol Distribution Pie Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <h3><i class="fas fa-chart-pie"></i> Protocol Distribution <span class="live-badge"></span></h3>
+                    <div class="chart-legend">
+                        <span class="legend-item"><span class="legend-color" style="background:#4361ee;"></span>TCP</span>
+                        <span class="legend-item"><span class="legend-color" style="background:#06d6a0;"></span>UDP</span>
+                        <span class="legend-item"><span class="legend-color" style="background:#ffd166;"></span>HTTP</span>
+                        <span class="legend-item"><span class="legend-color" style="background:#ef476f;"></span>HTTPS</span>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="protocolPieChart"></canvas>
+                </div>
+                <div class="protocol-sub-labels">
+                    <span class="protocol-sub-label"><span style="display: inline-block; width: 8px; height: 8px; background: #8b5cf6; border-radius: 50%;"></span> DNS</span>
+                    <span class="protocol-sub-label"><span style="display: inline-block; width: 8px; height: 8px; background: #ec489a; border-radius: 50%;"></span> Streaming</span>
+                    <span class="protocol-sub-label"><span style="display: inline-block; width: 8px; height: 8px; background: #14b8a6; border-radius: 50%;"></span> Gaming</span>
+                    <span class="protocol-sub-label"><span style="display: inline-block; width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></span> VoIP</span>
+                    <span class="protocol-sub-label"><span style="display: inline-block; width: 8px; height: 8px; background: #64748b; border-radius: 50%;"></span> Other</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Devices Table -->
+        <div class="table-card">
+            <div class="table-header">
+                <h3><i class="fas fa-trophy"></i> Top Bandwidth Consumers</h3>
+                <div><button class="refresh-btn" style="padding: 8px 15px;" onclick="manualScan()"><i class="fas fa-search"></i> Scan Now</button></div>
+            </div>
+            <div class="table-container">
+                <table id="devices-table">
+                    <thead>
+                        <tr><th>Rank</th><th>IP Address</th><th>Hostname</th><th>Manufacturer</th><th>Total</th><th>Download</th><th>Upload</th><th>Packets</th><th>Status</th><th>Actions</th> </thead>
+                    <tbody id="devices-body">
+                        <tr><td colspan="10" class="loading"><i class="fas fa-spinner fa-spin"></i> Loading devices...<br><small>First scan in progress (2-3 seconds)</small> </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="last-update"><i class="fas fa-clock"></i> Last update: <span id="last-update">Just now</span></div>
+        </div>
+    </div>
+
+    <script>
+        let bandwidthChart = null;
+        let protocolPieChart = null;
+        let lastRefreshTime = Date.now();
+
+        // Theme Toggle
+        function toggleTheme() {
+            const body = document.body;
+            const themeText = document.getElementById('theme-text');
+            if (body.classList.contains('dark')) {
+                body.classList.remove('dark');
+                themeText.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.classList.add('dark');
+                themeText.innerHTML = '<i class="fas fa-sun"></i> Light Mode';
+                localStorage.setItem('theme', 'dark');
+            }
+            if (bandwidthChart) bandwidthChart.update();
+            if (protocolPieChart) protocolPieChart.update();
+        }
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark');
+            document.getElementById('theme-text').innerHTML = '<i class="fas fa-sun"></i> Light Mode';
+        }
+
+        // Initialize Charts
+        function initCharts() {
+            // Bandwidth Line Chart
+            const ctx1 = document.getElementById('bandwidthChart').getContext('2d');
+            bandwidthChart = new Chart(ctx1, {
+                type: 'line', 
+                data: { 
+                    labels: [], 
+                    datasets: [
+                        { label: 'Download (Mbps)', data: [], borderColor: '#4361ee', backgroundColor: 'rgba(67,97,238,0.1)', fill: true, tension: 0.4, borderWidth: 2 },
+                        { label: 'Upload (Mbps)', data: [], borderColor: '#06d6a0', backgroundColor: 'rgba(6,214,160,0.1)', fill: true, tension: 0.4, borderWidth: 2 }
+                    ]
+                }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: true, 
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Mbps' } } },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+            
+            // Protocol Distribution Pie Chart
+            const ctx2 = document.getElementById('protocolPieChart').getContext('2d');
+            protocolPieChart = new Chart(ctx2, {
+                type: 'pie',
+                data: {
+                    labels: ['TCP', 'UDP', 'HTTP', 'HTTPS', 'DNS', 'Streaming', 'Gaming', 'VoIP', 'Other'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            '#4361ee', '#06d6a0', '#ffd166', '#ef476f', 
+                            '#8b5cf6', '#ec489a', '#14b8a6', '#f59e0b', '#64748b'
+                        ],
+                        borderWidth: 0,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const value = context.raw;
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${context.label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 1000
+                    }
+                }
+            });
+        }
+
+        async function fetchNetworkInfo() {
+            try {
+                const res = await fetch('/api/network-name');
+                const data = await res.json();
+                document.getElementById('network-name').textContent = data.name || 'Network';
+                document.getElementById('local-ip').textContent = data.ip;
+                document.getElementById('gateway').textContent = data.gateway;
+            } catch(e) { console.error(e); }
+        }
+
+        async function fetchStats() {
+            try {
+                const res = await fetch('/api/stats');
+                const data = await res.json();
+                document.getElementById('total-traffic').textContent = data.total_traffic + ' MB';
+                document.getElementById('active-devices').textContent = data.active_devices;
+                document.getElementById('packet-count').textContent = data.packet_count.toLocaleString();
+                document.getElementById('stat-traffic').textContent = data.total_traffic + ' MB';
+                document.getElementById('stat-packets').textContent = data.packet_count.toLocaleString();
+                document.getElementById('stat-active').textContent = data.active_devices;
+                document.getElementById('capture-rate').textContent = data.capture_rate;
+                document.getElementById('stat-anomalies').textContent = data.anomalies || 0;
+            } catch(e) { console.error(e); }
+        }
+
+        async function fetchDevices() {
+            try {
+                const res = await fetch('/api/devices');
+                const devices = await res.json();
+                const tbody = document.getElementById('devices-body');
+                if (devices.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="10" class="loading"><i class="fas fa-spinner fa-spin"></i> Scanning network...<br><small>This takes 2-3 seconds</small></td></tr>';
+                    return;
+                }
+                tbody.innerHTML = devices.map(d => `
+                    <tr>
+                        <td><strong>#${d.rank}</strong></td>
+                        <td><code>${d.ip}</code></td>
+                        <td>${d.hostname || '-'}</td>
+                        <td>${d.manufacturer || '-'}</td>
+                        <td><strong>${d.total_mb} MB</strong></td>
+                        <td style="color:#4caf50;">▼ ${d.download_mb} MB</td>
+                        <td style="color:#ff9800;">▲ ${d.upload_mb} MB</td>
+                        <td>${d.packets.toLocaleString()}</td>
+                        <td><span class="status-badge status-${d.status.toLowerCase()}">${d.status}</span></td>
+                        <td>
+                            <button class="btn-action" onclick="throttleDevice('${d.ip}')" title="Throttle"><i class="fas fa-tachometer-alt"></i></button>
+                            <button class="btn-action" onclick="blockDevice('${d.ip}')" title="Block"><i class="fas fa-ban"></i></button>
+                            <button class="btn-action" onclick="unblockDevice('${d.ip}')" title="Unblock"><i class="fas fa-check-circle"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch(e) { console.error(e); }
+        }
+
+        async function fetchBandwidthHistory() {
+            try {
+                const res = await fetch('/api/bandwidth-history');
+                const data = await res.json();
+                if (bandwidthChart) {
+                    bandwidthChart.data.labels = data.labels;
+                    bandwidthChart.data.datasets[0].data = data.download;
+                    bandwidthChart.data.datasets[1].data = data.upload;
+                    bandwidthChart.update();
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function fetchProtocolStats() {
+            try {
+                const res = await fetch('/api/protocol-stats');
+                const data = await res.json();
+                if (protocolPieChart) {
+                    protocolPieChart.data.datasets[0].data = [
+                        data.tcp, data.udp, data.http, data.https, 
+                        data.dns, data.streaming, data.gaming, data.voip, data.other
+                    ];
+                    protocolPieChart.update();
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function fetchAnomalies() {
+            try {
+                const res = await fetch('/api/anomalies');
+                const data = await res.json();
+                document.getElementById('stat-anomalies').textContent = data.count;
+            } catch(e) { console.error(e); }
+        }
+
+        async function manualScan() {
+            try {
+                const res = await fetch('/api/scan-now');
+                if (res.ok) {
+                    setTimeout(() => refreshAll(), 1500);
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        async function throttleDevice(ip, rate = '500kbps') {
+            try {
+                const res = await fetch('/api/control/throttle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip, rate }) });
+                if (res.ok) alert(`Device ${ip} throttled to ${rate}`);
+                refreshAll();
+            } catch(e) { console.error(e); }
+        }
+
+        async function blockDevice(ip) {
+            try {
+                const res = await fetch('/api/control/block', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }) });
+                if (res.ok) alert(`Device ${ip} blocked`);
+                refreshAll();
+            } catch(e) { console.error(e); }
+        }
+
+        async function unblockDevice(ip) {
+            try {
+                const res = await fetch('/api/control/unblock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }) });
+                if (res.ok) alert(`Device ${ip} unblocked`);
+                refreshAll();
+            } catch(e) { console.error(e); }
+        }
+
+        async function exportCSV() {
+            try {
+                const res = await fetch('/api/export-csv');
+                const data = await res.json();
+                let csv = 'IP,MAC,Hostname,Manufacturer,Status,Download_MB,Upload_MB,Total_MB\n';
+                data.forEach(d => csv += `"${d.IP}","${d.MAC}","${d.Hostname}","${d.Manufacturer}","${d.Status}",${d.Download_MB},${d.Upload_MB},${d.Total_MB}\n`);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `bandwidth_report_${new Date().toISOString().slice(0,19)}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch(e) { console.error(e); }
+        }
+
+        function refreshAll() {
+            lastRefreshTime = Date.now();
+            document.getElementById('last-update').textContent = 'Just now';
+            fetchNetworkInfo();
+            fetchStats();
+            fetchDevices();
+            fetchBandwidthHistory();
+            fetchProtocolStats();
+            fetchAnomalies();
+        }
+
+        function updateLastUpdate() {
+            const seconds = Math.floor((Date.now() - lastRefreshTime) / 1000);
+            document.getElementById('last-update').textContent = seconds < 60 ? `${seconds}s ago` : 'Just now';
+        }
+
+        function startAutoRefresh() {
+            refreshAll();
+            setInterval(() => { refreshAll(); updateLastUpdate(); }, 2000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { 
+            initCharts(); 
+            startAutoRefresh(); 
+        });
+    </script>
+</body>
+</html>
